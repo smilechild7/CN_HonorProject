@@ -1,0 +1,23 @@
+{
+  "name": "mir-computer-network",
+  "version": "1.0.0",
+  "description": "MIR Lab WebRTC SFU Server Assignment",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "WebRTC",
+    "SFU"
+  ],
+  "author": "Kyeung Rok Yun",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "express": "^4.19.2",
+    "mediasoup": "^3.9.8",
+    "mediasoup-client": "^3.7.12",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5"
+  }
+}
