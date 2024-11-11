@@ -5,16 +5,16 @@
  */
 
 const mediasoupClient = require('mediasoup-client');
-const io = require('socket.io-client')
+const io = require('socket.io-client');
 
-let rtpCapabilities
-let dataproducer
+let rtpCapabilities;
+let dataproducer;
 
-const socket = io()
+const socket = io();
 
 socket.on('close', (error) => {
-    console.log(error)
-})
+    console.log(error);
+});
 
 socket.on("connect_error", (err) => {
     console.log(err.message);
@@ -22,7 +22,7 @@ socket.on("connect_error", (err) => {
     console.log(err.context);
 });
 
-let Client
+let Client;
 
 /**
  * 클라이언트 관리를 위한 클래스
@@ -32,12 +32,12 @@ class ClientConnection {
     socket = undefined;
     rtpCapabilities = undefined;
     producerTransport = undefined;
-    consumerTransports = []
-    device
-    dataproducer
-    producer
-    consumers = []
-    params = undefined
+    consumerTransports = [];
+    device;
+    dataproducer;
+    producer;
+    consumers = [];
+    params = undefined;
 
     constructor(_socket) {
         this.socket = _socket;
@@ -511,6 +511,30 @@ async function call() {
     const remoteName = document.getElementById('remote-name').value;
     socket.emit('call', { remoteName, socketId: socket.id })
 }
+/*
+RTSP 스트림 요청과 수신을 처리
+*/
+async function requestRTSPStream() {
+    console.log("Requesting RTSP stream from server..."); // 요청 시작 로그
+    socket.emit('request-rtsp-stream'); // 서버에 RTSP 스트림 요청
+
+    socket.on('rtsp-stream', async ({ remoteProducerId }) => {
+        console.log("RTSP stream received from server."); // 수신 성공 로그
+        let cTransport = await Client.createRecvTransport();
+        let consumer = await Client.consume(cTransport.consumerTransport, remoteProducerId, cTransport.serverTransportId);
+        const { track } = consumer;
+        const remoteVideo = document.getElementById("remoteVideo");
+        remoteVideo.srcObject = new MediaStream([track]);
+        Client.consumer_resume(consumer.id);
+    });
+
+    socket.on("rtsp-stream-error", (error) => {
+        console.error("Failed to receive RTSP stream:", error); // 수신 실패 로그
+        alert("Error: Could not retrieve RTSP stream.");
+    });
+
+    console.log("RTSP stream request has been emitted."); // 요청 전송 완료 로그
+}
 
 /**
  * 기본 채팅 상호작용을 위한 JavaScript
@@ -542,3 +566,7 @@ document.getElementById('btnProduce').addEventListener('click', async () => {
 document.getElementById('btnCall').addEventListener('click', async () => {
     await call()
 })
+// requestRTSPStream 함수를 버튼 클릭 시 호출할 수 있도록 연결
+document.getElementById('btnRequestRTSP').addEventListener('click', async () => {
+    await requestRTSPStream();
+});

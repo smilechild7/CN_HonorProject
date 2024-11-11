@@ -31,25 +31,26 @@ let httpsServerPort = 443
 const app = express();
 app.use('/', express.static(path.join(__dirname, 'public')))
 
-const options = {
+const options = { // HTTPS 인증서를 설정 -> HTTPS 서버 생성에 사용
     key: fs.readFileSync('./ssl/key.pem', 'utf-8'),
     cert: fs.readFileSync('./ssl/cert.pem', 'utf-8'),
     rejectUnauthorized: false,
 };
 
-const httpsServer = https.createServer(options, app);
+const httpsServer = https.createServer(options, app); // HTTPS 서버 생성
 
 /**
  * Author: Yun Kyeung Rok
  * WebRTC Mediasoup 서버와 클라이언트를 위한 신호 서버
  * Signaling Server for WebRTC Mediasoup Server and Client.
  */
-const ios = new Server(httpsServer);
-let RTC = new WebRTC_SFU_Server()
+const ios = new Server(httpsServer); // socket io
+let RTC = new WebRTC_SFU_Server();
 
-await RTC.init("192.168.179.130", 1522, true)
+//await RTC.init("192.168.179.130", 1522, true);
+await RTC.init("127.0.0.1", 1522, true);
 
-ios.on('connection', async socket => {
+ios.on('connection', async socket => { 
     console.log(`connection, Client connected ${socket.id}`)
 
     socket.emit('connection-success', {
@@ -61,7 +62,7 @@ ios.on('connection', async socket => {
      * 클라이언트가 RTP 기능을 요청할 때 처리
      * Handling client's RTP capability request.
      */
-    socket.on('getRTPcap', async ({ localName, socketId }, callback) => {
+    socket.on('getRTPcap', async ({ localName, socketId }, callback) => { 
         try {
             console.log('getRtpCap, client')
             clients[localName] = socket
@@ -69,7 +70,7 @@ ios.on('connection', async socket => {
         } catch (error) {
             callback({ error: true })
         }
-    })
+    }); // RTC.getRtpCap()을 호출해 RTP 기능 정보를 얻은 후 callback을 통해 클라이언트에게 rtpCapabilities를 반환
 
     /**
      * Author: Yun Kyeung Rok
@@ -95,7 +96,7 @@ ios.on('connection', async socket => {
             error => {
                 console.log(error)
             })
-    })
+    });
 
     /**
      * Author: Yun Kyeung Rok
@@ -105,7 +106,7 @@ ios.on('connection', async socket => {
     socket.on('transport-connect', async ({ dtlsParameters, socketId }) => {
         Log(`transport-connect : ${socketId}`)
         RTC.getTransport(socketId).connect({ dtlsParameters })
-    });
+    }); // 클라이언트가 전달한 dtlsParameters로 트랜스포트를 연결
 
     /**
      * Author: Yun Kyeung Rok
@@ -119,7 +120,7 @@ ios.on('connection', async socket => {
             id: producer.id,
             socketId: socketId
         })
-    });
+    }); // 클라이언트가 미디어를 송출할 때 호출
 
     /**
      * Author: Yun Kyeung Rok
@@ -133,7 +134,7 @@ ios.on('connection', async socket => {
             id: producer.id,
             socketId: socketId,
         })
-    })
+    });
 
     /**
      * Author: Yun Kyeung Rok
@@ -144,7 +145,7 @@ ios.on('connection', async socket => {
         Log(`transport-recv-connect`)
         const consumerTransport = await RTC.getRecvTransport(serverConsumerTransportId)
         await consumerTransport.connect({ dtlsParameters })
-    })
+    });
 
     /**
      * Author: Yun Kyeung Rok
@@ -152,13 +153,31 @@ ios.on('connection', async socket => {
      * Handling call initiation.
      */
     socket.on('call', async ({ remoteName, socketId }) => {
-        Log(`on Call`)
-        let remote_socketId = clients[remoteName].id
-        let remoteProducerId = await RTC.getProducer(remote_socketId)
-        let remoteDataProducerId = await RTC.getDataProducer(remote_socketId)
-        socket.emit('remoteProducer', { remoteProducerId })
-        socket.emit('remoteDataProducer', { remoteDataProducerId })
-    })
+        try {
+            Log(`on Call`);
+    
+            // 요청된 remoteName에 해당하는 소켓 ID가 존재하는지 확인
+            if (!clients[remoteName]) {
+                throw new Error(`Client with name ${remoteName} does not exist`);
+            }
+    
+            let remote_socketId = clients[remoteName].id;
+            
+            // Producer와 Data Producer ID 가져오기
+            let remoteProducerId = await RTC.getProducer(remote_socketId);
+            let remoteDataProducerId = await RTC.getDataProducer(remote_socketId);
+    
+            // 클라이언트에게 Producer 정보 전송
+            socket.emit('remoteProducer', { remoteProducerId });
+            socket.emit('remoteDataProducer', { remoteDataProducerId });
+    
+        } catch (error) {
+            // 에러 로그를 출력하고 클라이언트에게 에러 메시지를 전송
+            console.error(`Error in 'call' event:`, error.message);
+            socket.emit('error', { message: error.message });
+        }
+    });
+    
 
     /**
      * Author: Yun Kyeung Rok
@@ -185,7 +204,7 @@ ios.on('connection', async socket => {
                 }
             })
         }
-    })
+    });
 
     /**
      * Author: Yun Kyeung Rok
@@ -225,8 +244,8 @@ ios.on('connection', async socket => {
     socket.on('consumer-resume', async ({ serverConsumerId }) => {
         Log(`on consumer-resume`)
         await RTC.consume_resume(serverConsumerId)
-    })
-})
+    });
+});
 
 /**
  * Author: Yun Kyeung Rok
